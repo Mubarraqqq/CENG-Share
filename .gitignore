@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+
+# Demo runtime artifacts (regenerated on use)
+logs/*.jsonl
+
+# RSA keys — never commit private keys
+keys/*.pem
+
+# Streamlit
+.streamlit/secrets.toml
