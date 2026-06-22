@@ -294,7 +294,7 @@ _REQUIRED_FIELDS = (
 def open_secure_package(
     package: dict,
     receiver_private_key,
-    expected_sender_public_key=None,
+    expected_sender_public_key,
 ) -> VerificationResult:
     """Verify signature + integrity, then decrypt.
 
@@ -323,9 +323,13 @@ def open_secure_package(
         return result
 
     # --- authentication: verify the complete signed package -----------------
-    sender_pub = expected_sender_public_key or load_public_key(
-        package["sender_public_key"]
-    )
+    if expected_sender_public_key is None:
+        result.errors.append(
+            "Verification blocked: a trusted sender public key is required."
+        )
+        return result
+
+    sender_pub = expected_sender_public_key
     try:
         sender_pub.verify(
             signature,

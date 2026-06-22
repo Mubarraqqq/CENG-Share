@@ -88,6 +88,34 @@ rf = open_secure_package(
 check("impersonator's signature rejected", not rf.signature_valid)
 check("impersonation overall not ok", not rf.ok)
 
+print("\n[4] Verification without a trusted sender key is blocked")
+
+unknown_result = open_secure_package(
+    pkg,
+    identity.get_private_key("Bob"),
+    expected_sender_public_key=None,
+)
+
+check(
+    "signature not trusted without keyring key",
+    not unknown_result.signature_valid,
+)
+
+check(
+    "decryption blocked without trusted sender key",
+    not unknown_result.decrypted,
+)
+
+check(
+    "plaintext not exposed without trusted sender key",
+    unknown_result.plaintext is None,
+)
+
+check(
+    "package not accepted without trusted sender key",
+    not unknown_result.ok,
+)
+
 print("\n" + "=" * 48)
 passed = sum(1 for _, c in results if c)
 print(f"  {passed}/{len(results)} checks passed")
