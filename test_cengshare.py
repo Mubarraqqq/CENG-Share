@@ -59,13 +59,30 @@ check("decryption refused", not r2.decrypted)
 check("overall not ok", not r2.ok)
 
 print("\n[3] Forged sender (wrong signing key) is rejected")
-forged = copy.deepcopy(pkg)
-attacker = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-forged_pkg = create_secure_package(data, "secret.txt", attacker, receiver_pub)
-# Receiver expects the legitimate sender's public key:
-r3 = open_secure_package(forged_pkg, receiver_priv,
-                         expected_sender_public_key=load_public_key(keys["sender_public"]))
+
+attacker = rsa.generate_private_key(
+    public_exponent=65537,
+    key_size=2048,
+)
+
+forged_pkg = create_secure_package(
+    data,
+    "secret.txt",
+    attacker,
+    receiver_pub,
+)
+
+r3 = open_secure_package(
+    forged_pkg,
+    receiver_priv,
+    expected_sender_public_key=load_public_key(
+        keys["sender_public"]
+    ),
+)
+
 check("signature rejected", not r3.signature_valid)
+check("decryption blocked", not r3.decrypted)
+check("plaintext not exposed", r3.plaintext is None)
 check("overall not ok", not r3.ok)
 
 print("\n[4] Malformed package is rejected")

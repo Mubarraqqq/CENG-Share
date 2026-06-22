@@ -241,8 +241,15 @@ def open_secure_package(
             hashes.SHA256(),
         )
         result.signature_valid = True
+
     except InvalidSignature:
-        result.errors.append("Invalid digital signature: sender unverified or hash altered.")
+        result.errors.append(
+            "Invalid digital signature: sender unverified or package altered."
+        )
+
+        # Do not attempt RSA key recovery or AES decryption when the sender
+        # cannot be authenticated.
+        return result
 
     # --- recover the AES key -------------------------------------------------
     try:
