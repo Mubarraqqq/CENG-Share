@@ -129,12 +129,19 @@ with tab_receive:
             audit_log.log_event("VERIFY_FAIL", {"reason": "unparseable package"})
         else:
             receiver_private = load_private_key(KEYS["receiver_private"])
-            result = open_secure_package(package, receiver_private)
+            trusted_sender_public = load_public_key(KEYS["sender_public"])
+
+            result = open_secure_package(
+                package,
+                receiver_private,
+                expected_sender_public_key=trusted_sender_public,
+            )
 
             audit_log.log_event(
                 "VERIFY",
                 {"filename": result.filename, **result.as_dict()},
             )
+
             alerts = ids.analyze_verification(result, source=pkg_file.name)
 
             st.markdown("#### Verification report")
