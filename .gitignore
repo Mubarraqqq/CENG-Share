@@ -8,5 +8,11 @@ logs/*.jsonl
 # RSA keys — never commit private keys
 keys/*.pem
 
+# Per-user identities (contain PRIVATE keys) — never commit
+identities/
+
+# Shared channel: keyring (public keys) + packages in transit
+channel/
+
 # Streamlit
 .streamlit/secrets.toml

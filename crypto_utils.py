@@ -99,8 +99,16 @@ def create_secure_package(
     filename: str,
     sender_private_key,
     receiver_public_key,
+    sender_name: str = "CENG",
+    recipient_name: str | None = None,
 ) -> dict:
-    """Encrypt, hash and sign a file, returning a JSON-serialisable package."""
+    """Encrypt, hash and sign a file, returning a JSON-serialisable package.
+
+    sender_name / recipient_name are identity labels used by the channel for
+    routing and by the receiver for trusted-key lookup. Metadata is NOT signed
+    (only file_hash is), so the receiver must verify the sender via a trusted
+    keyring copy of their public key, never the PEM embedded in the package.
+    """
     # 1. Confidentiality: AES-256-GCM with a fresh random key + nonce.
     aes_key = AESGCM.generate_key(bit_length=256)
     nonce = os.urandom(12)
@@ -144,7 +152,8 @@ def create_secure_package(
             "filename": filename,
             "size": len(plaintext),
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "sender": "CENG",
+            "sender": sender_name,
+            "recipient": recipient_name,
         },
         "nonce": base64.b64encode(nonce).decode(),
         "ciphertext": base64.b64encode(ciphertext).decode(),
