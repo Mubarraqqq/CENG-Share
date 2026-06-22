@@ -203,10 +203,10 @@ with tab_audit:
 
     chain = audit_log.verify_chain()
     if chain["intact"]:
-        st.success(f"✅ Chain intact — {chain['count']} record(s) verified.")
+        st.success(f" Chain intact — {chain['count']} record(s) verified.")
     else:
         st.error(
-            f"❌ Chain BROKEN at record #{chain['broken_index']}: {chain['reason']}"
+            f" Chain BROKEN at record #{chain['broken_index']}: {chain['reason']}"
         )
 
     records = list(reversed(audit_log.read_log()))
@@ -225,7 +225,7 @@ with tab_audit:
         ]
         st.dataframe(rows, use_container_width=True, hide_index=True)
 
-    with st.expander("🔬 Tamper test (for the demo)"):
+    with st.expander(" Tamper test (for the demo)"):
         st.write(
             "Edit `logs/audit_log.jsonl` by hand (change any past record), then "
             "reopen this tab — the chain check above will report the broken index."
