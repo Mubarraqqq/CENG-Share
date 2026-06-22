@@ -1,18 +1,27 @@
+# Python virtual environment
 .venv/
+venv/
+
+# Python cache
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
 
-# Demo runtime artifacts (regenerated on use)
-logs/*.jsonl
+# PyCharm
+.idea/
 
-# RSA keys — never commit private keys
-keys/*.pem
+# Generated cryptographic keys
+keys/
+*.pem
+*.key
 
-# Per-user identities (contain PRIVATE keys) — never commit
-identities/
+# Generated packages
+*.cengshare
+*.cengshare.json
 
-# Shared channel: keyring (public keys) + packages in transit
-channel/
+# Runtime security logs
+logs/
 
-# Streamlit
-.streamlit/secrets.toml
+# Operating system
+.DS_Store
+Thumbs.db
