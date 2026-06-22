@@ -33,7 +33,7 @@ KEYS = ensure_keys()
 
 
 def _badge(ok: bool, label: str) -> str:
-    return f"{'✅' if ok else '❌'} {label}"
+    return f"{'good' if ok else 'issue'} {label}"
 
 
 # --------------------------------------------------------------------------- #
@@ -155,15 +155,15 @@ with tab_receive:
             else:
                 st.error("Verification failed — decryption refused.")
                 for err in result.errors:
-                    st.write(f"- ⚠️ {err}")
+                    st.write(f"- {err}")
                 if alerts:
-                    st.warning(f"🛡️ {len(alerts)} IDS alert(s) raised. See the IDS Monitoring tab.")
+                    st.warning(f"{len(alerts)} IDS alert(s) raised. See the IDS Monitoring tab.")
 
 # --------------------------------------------------------------------------- #
 # Tab 3 — IDS Monitoring
 # --------------------------------------------------------------------------- #
 with tab_ids:
-    st.subheader("🛡️ Intrusion Detection")
+    st.subheader("Intrusion Detection")
     summary = ids.alert_summary()
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total alerts", summary["total"])
