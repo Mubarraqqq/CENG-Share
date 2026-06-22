@@ -1,12 +1,27 @@
+# Python virtual environment
 .venv/
+venv/
+
+# Python cache
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
 
-# Demo runtime artifacts (regenerated on use)
-logs/*.jsonl
+# PyCharm
+.idea/
 
-# RSA keys — never commit private keys
-keys/*.pem
+# Generated cryptographic keys
+keys/
+*.pem
+*.key
 
-# Streamlit
-.streamlit/secrets.toml
+# Generated packages
+*.cengshare
+*.cengshare.json
+
+# Runtime security logs
+logs/
+
+# Operating system
+.DS_Store
+Thumbs.db
