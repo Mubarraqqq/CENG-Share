@@ -116,17 +116,24 @@ with tab_send:
             plaintext = upload.read()
             st.info(f"Loaded **{upload.name}** ({len(plaintext):,} bytes).")
 
-        if st.button("🔒 Encrypt, Hash & Sign", type="primary"):
-            sender_private = load_private_key(KEYS["sender_private"])
-            receiver_public = load_public_key(KEYS["receiver_public"])
-            package = create_secure_package(
-                plaintext, upload.name, sender_private, receiver_public
-            )
-            audit_log.log_event(
-                "ENCRYPT",
-                {"filename": upload.name, "size": len(plaintext),
-                 "file_hash": package["file_hash"]},
-            )
+            if st.button("🔒 Encrypt, Sign & Send to channel", type="primary"):
+                sender_private = identity.get_private_key(me)
+                recipient_public = identity.get_public_key(recipient)
+                package = create_secure_package(
+                    plaintext, upload.name, sender_private, recipient_public,
+                    sender_name=me, recipient_name=recipient,
+                )
+                pkg_bytes = package_to_bytes(package)
+                msg_id = channel.publish(pkg_bytes, me, recipient)
+                audit_log.log_event(
+                    "ENCRYPT",
+                    {"filename": upload.name, "size": len(plaintext),
+                     "file_hash": package["file_hash"], "sender": me, "recipient": recipient},
+                )
+                audit_log.log_event(
+                    "SEND", {"msg_id": msg_id, "from": me, "to": recipient,
+                             "filename": upload.name},
+                )
 
                 st.success(f"Sent to **{recipient}** through the channel.")
                 c1, c2, c3 = st.columns(3)
@@ -140,18 +147,16 @@ with tab_send:
                     st.write(f"**Signature (b64, head):** `{package['signature'][:60]}…`")
                     st.json(package["metadata"])
 
-            package_bytes = package_to_bytes(package)
-            out_name = f"{upload.name}.cengshare.json"
-            st.download_button(
-                "⬇️ Download Secure Package",
-                data=package_bytes,
-                file_name=out_name,
-                mime="application/json",
-            )
-            st.caption(
-                "Hand this `.cengshare.json` package to the receiver and open it "
-                "in the **Receive & Verify** tab."
-            )
+                st.download_button(
+                    "⬇️ Download package (optional backup copy)",
+                    data=pkg_bytes,
+                    file_name=f"{upload.name}.cengshare.json",
+                    mime="application/json",
+                )
+                st.caption(
+                    f"Now switch to the **{recipient}** session and open the "
+                    "**Receive & Verify** tab to collect it."
+                )
 
 # --------------------------------------------------------------------------- #
 # Tab 2 — Receive & Verify
@@ -184,20 +189,42 @@ with tab_receive:
             except Exception as exc:  # noqa: BLE001
                 package, parse_error = None, str(exc)
 
-        if parse_error:
-            st.error(f"Could not parse package: {parse_error}")
-            ids.raise_alert("CRITICAL", "INVALID_PACKAGE",
-                            "Uploaded package is not valid JSON.", {"source": pkg_file.name})
-            audit_log.log_event("VERIFY_FAIL", {"reason": "unparseable package"})
-        else:
-            receiver_private = load_private_key(KEYS["receiver_private"])
-            result = open_secure_package(package, receiver_private)
+            if parse_error:
+                st.error(f"Could not parse package: {parse_error}")
+                ids.raise_alert("CRITICAL", "INVALID_PACKAGE",
+                                "Package on the channel is not valid JSON.", {"msg_id": msg_id})
+                audit_log.log_event("VERIFY_FAIL", {"reason": "unparseable package"})
+            else:
+                claimed_sender = package.get("metadata", {}).get("sender", "?")
+                trusted_pub = identity.get_public_key(claimed_sender)
+                sender_known = trusted_pub is not None
 
-            audit_log.log_event(
-                "VERIFY",
-                {"filename": result.filename, **result.as_dict()},
-            )
-            alerts = ids.analyze_verification(result, source=pkg_file.name)
+                # Impersonation check: the embedded key must match the trusted one.
+                embedded = (package.get("sender_public_key") or "").strip()
+                trusted_pem = (identity.public_pem(claimed_sender) or "").strip()
+                key_mismatch = sender_known and embedded != trusted_pem
+
+                receiver_private = identity.get_private_key(me)
+                result = open_secure_package(
+                    package, receiver_private, expected_sender_public_key=trusted_pub
+                )
+                audit_log.log_event(
+                    "VERIFY",
+                    {"msg_id": msg_id, "claimed_sender": claimed_sender,
+                     "sender_known": sender_known, **result.as_dict()},
+                )
+                alerts = ids.analyze_verification(result, source=msg_id)
+
+                if not sender_known:
+                    alerts.append(ids.raise_alert(
+                        "WARNING", "UNKNOWN_SENDER",
+                        f"Sender '{claimed_sender}' is not in your keyring — identity unverified.",
+                        {"msg_id": msg_id}))
+                if key_mismatch:
+                    alerts.append(ids.raise_alert(
+                        "CRITICAL", "SENDER_KEY_MISMATCH",
+                        f"Embedded key does not match the trusted key for '{claimed_sender}' — possible impersonation.",
+                        {"msg_id": msg_id}))
 
                 st.markdown("#### Verification report")
                 if sender_known and result.signature_valid:
@@ -211,20 +238,24 @@ with tab_receive:
                 c3.write(_badge(result.integrity_valid, "Integrity"))
                 c4.write(_badge(result.decrypted, "Decrypted"))
 
-            if result.ok:
-                st.success("All checks passed — file authentic and intact.")
-                audit_log.log_event("DECRYPT", {"filename": result.filename})
-                st.download_button(
-                    "⬇️ Download Decrypted File",
-                    data=result.plaintext,
-                    file_name=result.filename or "recovered.bin",
-                )
-            else:
-                st.error("Verification failed — decryption refused.")
-                for err in result.errors:
-                    st.write(f"- {err}")
-                if alerts:
-                    st.warning(f"{len(alerts)} IDS alert(s) raised. See the IDS Monitoring tab.")
+                if result.ok:
+                    st.success("All checks passed — file authentic and intact.")
+                    audit_log.log_event("DECRYPT", {"msg_id": msg_id, "filename": result.filename})
+                    st.download_button(
+                        "⬇️ Download Decrypted File",
+                        data=result.plaintext,
+                        file_name=result.filename or "recovered.bin",
+                    )
+                    if st.button("🗑️ Remove from channel"):
+                        channel.delete(msg_id)
+                        audit_log.log_event("CHANNEL_DELETE", {"msg_id": msg_id})
+                        st.rerun()
+                else:
+                    st.error("Verification failed — decryption refused.")
+                    for err in result.errors:
+                        st.write(f"- {err}")
+                    if alerts:
+                        st.warning(f"{len(alerts)} IDS alert(s) raised. See the IDS Monitoring tab.")
 
 # --------------------------------------------------------------------------- #
 # Tab 3 — IDS Monitoring
@@ -312,3 +343,4 @@ with tab_audit:
             "Edit `logs/audit_log.jsonl` by hand (change any past record), then "
             "reopen this tab — the chain check above will report the broken index."
         )
+        
