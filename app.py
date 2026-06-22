@@ -26,7 +26,7 @@ from crypto_utils import (
     package_to_bytes,
 )
 
-st.set_page_config(page_title="CENGShare", page_icon="🔐", layout="wide")
+st.set_page_config(page_title="CENGShare", page_icon="", layout="wide")
 
 # Ensure RSA keypairs exist for the demo (sender signs, receiver unwraps key).
 KEYS = ensure_keys()
@@ -39,14 +39,14 @@ def _badge(ok: bool, label: str) -> str:
 # --------------------------------------------------------------------------- #
 # Header
 # --------------------------------------------------------------------------- #
-st.title("🔐 CENGShare")
+st.title(" CENGShare")
 st.caption(
     "Secure document sharing · Confidentiality · Integrity · Authentication · "
     "Detection · Accountability — by Team CENG"
 )
 
 tab_send, tab_receive, tab_ids, tab_audit = st.tabs(
-    ["📤 Send Secure File", "📥 Receive & Verify", "🛡️ IDS Monitoring", "📜 Forensic Audit Log"]
+    [" Send Secure File", "Receive & Verify", " IDS Monitoring", " Forensic Audit Log"]
 )
 
 # --------------------------------------------------------------------------- #
@@ -65,7 +65,7 @@ with tab_send:
         plaintext = upload.read()
         st.info(f"Loaded **{upload.name}** ({len(plaintext):,} bytes).")
 
-        if st.button("🔒 Encrypt, Hash & Sign", type="primary"):
+        if st.button(" Encrypt, Hash & Sign", type="primary"):
             sender_private = load_private_key(KEYS["sender_private"])
             receiver_public = load_public_key(KEYS["receiver_public"])
             package = create_secure_package(
@@ -91,7 +91,7 @@ with tab_send:
             package_bytes = package_to_bytes(package)
             out_name = f"{upload.name}.cengshare.json"
             st.download_button(
-                "⬇️ Download Secure Package",
+                "Download Secure Package",
                 data=package_bytes,
                 file_name=out_name,
                 mime="application/json",
@@ -148,7 +148,7 @@ with tab_receive:
                 st.success("All checks passed — file authentic and intact.")
                 audit_log.log_event("DECRYPT", {"filename": result.filename})
                 st.download_button(
-                    "⬇️ Download Decrypted File",
+                    " Download Decrypted File",
                     data=result.plaintext,
                     file_name=result.filename or "recovered.bin",
                 )
@@ -195,7 +195,7 @@ with tab_ids:
 # Tab 4 — Forensic Audit Log
 # --------------------------------------------------------------------------- #
 with tab_audit:
-    st.subheader("📜 Forensic Audit Log (hash-chained)")
+    st.subheader(" Forensic Audit Log (hash-chained)")
     st.write(
         "Every event is chained to the previous one with SHA-256. Altering any "
         "past record breaks the chain — proving tamper-evidence."
