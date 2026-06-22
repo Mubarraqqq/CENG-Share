@@ -76,12 +76,51 @@ def load_private_key(path: Path):
 
 
 def load_public_key(path_or_pem):
-    data = path_or_pem
-    if isinstance(path_or_pem, (str, Path)) and Path(path_or_pem).exists():
-        data = Path(path_or_pem).read_bytes()
-    if isinstance(data, str):
-        data = data.encode()
-    return serialization.load_pem_public_key(data)
+    """Load an RSA public key from a Path, file-path string, PEM string, or bytes."""
+
+    if isinstance(path_or_pem, Path):
+        if not path_or_pem.is_file():
+            raise FileNotFoundError(
+                f"Public-key file does not exist: {path_or_pem}"
+            )
+        data = path_or_pem.read_bytes()
+
+    elif isinstance(path_or_pem, bytes):
+        data = path_or_pem
+
+    elif isinstance(path_or_pem, str):
+        value = path_or_pem.strip()
+
+        # PEM key supplied directly as text.
+        if (
+            "-----BEGIN PUBLIC KEY-----" in value
+            or "-----BEGIN RSA PUBLIC KEY-----" in value
+        ):
+            data = value.encode("utf-8")
+
+        # Otherwise, treat the string as a file path.
+        else:
+            key_path = Path(value)
+
+            if not key_path.is_file():
+                raise FileNotFoundError(
+                    f"Public-key file does not exist: {key_path}"
+                )
+
+            data = key_path.read_bytes()
+
+    else:
+        raise TypeError(
+            "Public key must be supplied as a Path, file-path string, "
+            "PEM string, or bytes."
+        )
+
+    public_key = serialization.load_pem_public_key(data)
+
+    if not isinstance(public_key, rsa.RSAPublicKey):
+        raise TypeError("CENGShare currently supports RSA public keys only.")
+
+    return public_key
 
 
 # --------------------------------------------------------------------------- #
@@ -241,8 +280,15 @@ def open_secure_package(
             hashes.SHA256(),
         )
         result.signature_valid = True
+
     except InvalidSignature:
-        result.errors.append("Invalid digital signature: sender unverified or hash altered.")
+        result.errors.append(
+            "Invalid digital signature: sender unverified or package altered."
+        )
+
+        # Do not attempt RSA key recovery or AES decryption when the sender
+        # cannot be authenticated.
+        return result
 
     # --- recover the AES key -------------------------------------------------
     try:
