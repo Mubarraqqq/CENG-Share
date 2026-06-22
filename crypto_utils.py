@@ -6,9 +6,9 @@ Security model (per file transfer):
   Key protection  : the AES key is encrypted with the receiver's RSA public key
                     (RSA-OAEP). Only the receiver's private key can recover it.
   Integrity       : SHA-256 hash of the plaintext is stored in the package.
-  Authentication  : the hash is digitally signed with the sender's RSA private
-                    key (RSA-PSS). The receiver verifies it with the sender's
-                    public key, proving origin and that nothing was altered.
+  Authentication  : the complete encrypted package is digitally signed with the
+                  sender's RSA private key (RSA-PSS). The receiver verifies it
+                  using the sender's trusted public key before decryption.
 
 Everything binary in a package is base64-encoded so the package is plain JSON.
 """
@@ -129,6 +129,25 @@ def load_public_key(path_or_pem):
 def sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
+def canonical_package_bytes(package: dict) -> bytes:
+    """Return stable bytes representing all signed package fields.
+
+    The signature field is excluded because a signature cannot include itself.
+    Every other field, including metadata, ciphertext, nonce and wrapped key,
+    is protected against modification.
+    """
+    protected_fields = {
+        key: value
+        for key, value in package.items()
+        if key != "signature"
+    }
+
+    return json.dumps(
+        protected_fields,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
 
 # --------------------------------------------------------------------------- #
 # Encryption (sender side)
@@ -144,9 +163,8 @@ def create_secure_package(
     """Encrypt, hash and sign a file, returning a JSON-serialisable package.
 
     sender_name / recipient_name are identity labels used by the channel for
-    routing and by the receiver for trusted-key lookup. Metadata is NOT signed
-    (only file_hash is), so the receiver must verify the sender via a trusted
-    keyring copy of their public key, never the PEM embedded in the package.
+    routing and by the receiver for trusted-key lookup. All package fields, including metadata and encrypted content, are signed.
+The receiver must still verify the signature using a trusted keyring key.
     """
     # 1. Confidentiality: AES-256-GCM with a fresh random key + nonce.
     aes_key = AESGCM.generate_key(bit_length=256)
@@ -167,14 +185,44 @@ def create_secure_package(
     file_hash = sha256_hex(plaintext)
 
     # 4. Authentication: sign the hash with the sender's RSA private key.
+    sender_public_pem = (
+        sender_private_key.public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        .decode("utf-8")
+    )
+
+    package = {
+        "version": PACKAGE_VERSION,
+        "metadata": {
+            "filename": filename,
+            "size": len(plaintext),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "sender": sender_name,
+            "recipient": recipient_name,
+        },
+        "nonce": base64.b64encode(nonce).decode("utf-8"),
+        "ciphertext": base64.b64encode(ciphertext).decode("utf-8"),
+        "encrypted_key": base64.b64encode(encrypted_key).decode("utf-8"),
+        "file_hash": file_hash,
+        "sender_public_key": sender_public_pem,
+    }
+
+    # Sign the complete package rather than only the plaintext hash.
     signature = sender_private_key.sign(
-        file_hash.encode(),
+        canonical_package_bytes(package),
         padding.PSS(
             mgf=padding.MGF1(hashes.SHA256()),
             salt_length=padding.PSS.MAX_LENGTH,
         ),
         hashes.SHA256(),
     )
+
+    package["signature"] = base64.b64encode(signature).decode("utf-8")
+
+    return package
 
     sender_public_pem = (
         sender_private_key.public_key()
@@ -274,14 +322,14 @@ def open_secure_package(
         result.errors.append(f"Malformed package: cannot decode fields ({exc}).")
         return result
 
-    # --- authentication: verify the signature over the claimed hash ---------
+    # --- authentication: verify the complete signed package -----------------
     sender_pub = expected_sender_public_key or load_public_key(
         package["sender_public_key"]
     )
     try:
         sender_pub.verify(
             signature,
-            claimed_hash.encode(),
+            canonical_package_bytes(package),
             padding.PSS(
                 mgf=padding.MGF1(hashes.SHA256()),
                 salt_length=padding.PSS.MAX_LENGTH,
