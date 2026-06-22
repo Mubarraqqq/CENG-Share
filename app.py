@@ -32,8 +32,6 @@ from crypto_utils import (
 
 st.set_page_config(page_title="CENGShare", page_icon="", layout="wide")
 
-CREATE_SENTINEL = "➕ Create new identity…"
-
 
 def _badge(ok: bool, label: str) -> str:
     return f"{'good' if ok else 'issue'} {label}"
@@ -44,27 +42,35 @@ def _badge(ok: bool, label: str) -> str:
 # --------------------------------------------------------------------------- #
 st.sidebar.header("Your identity")
 identities = identity.list_identities()
-options = identities + [CREATE_SENTINEL]
-choice = st.sidebar.selectbox("Acting as", options, key="identity_choice")
 
-if choice == CREATE_SENTINEL:
-    new_name = st.sidebar.text_input("New identity name", placeholder="e.g. Alice")
-    if st.sidebar.button("Create identity", type="primary"):
-        try:
-            identity.create_identity(new_name)
-            audit_log.log_event("IDENTITY_CREATE", {"name": new_name.strip()})
+# Two-party setup: name the sender and the receiver, then create both keypairs.
+with st.sidebar.expander("Set up the two users", expanded=len(identities) < 2):
+    sender_name = st.text_input("Sender name", placeholder="e.g. Alice", key="setup_sender")
+    receiver_name = st.text_input("Receiver name", placeholder="e.g. Bob", key="setup_receiver")
+    if st.button("Create users", type="primary", key="setup_create"):
+        names = [sender_name.strip(), receiver_name.strip()]
+        if not all(names):
+            st.error("Enter a name for both the sender and the receiver.")
+        elif names[0] == names[1]:
+            st.error("Sender and receiver must have different names.")
+        else:
+            for nm in names:
+                identity.create_identity(nm)
+            audit_log.log_event(
+                "IDENTITY_CREATE", {"sender": names[0], "receiver": names[1]}
+            )
             st.rerun()
-        except ValueError as exc:
-            st.sidebar.error(str(exc))
+
+if not identities:
     st.title("🔐 CENGShare")
     st.info(
-        "Create an identity in the sidebar to begin. For the demo, create two — "
-        "e.g. **Alice** and **Bob** — then open a second browser tab and act as "
-        "the other one. Their public keys are shared automatically via the channel."
+        "Name the two users — one **sender**, one **receiver** — in the sidebar to "
+        "begin. Then open a second browser tab and act as the other one. Their "
+        "public keys are shared automatically via the channel."
     )
     st.stop()
 
-me = choice
+me = st.sidebar.selectbox("Acting as", identities, key="identity_choice")
 st.sidebar.success(f"You are **{me}**")
 fp = identity.fingerprint(me)
 if fp:
