@@ -31,8 +31,7 @@ from crypto_utils import (
     open_secure_package,
 )
 
-PASS = "PASS ✅"
-FAIL = "FAIL ❌"
+PASS, FAIL = "PASS ", "FAIL "
 results = []
 
 

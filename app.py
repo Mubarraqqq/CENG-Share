@@ -26,27 +26,27 @@ from crypto_utils import (
     package_to_bytes,
 )
 
-st.set_page_config(page_title="CENGShare", page_icon="🔐", layout="wide")
+st.set_page_config(page_title="CENGShare", page_icon="", layout="wide")
 
 # Ensure RSA keypairs exist for the demo (sender signs, receiver unwraps key).
 KEYS = ensure_keys()
 
 
 def _badge(ok: bool, label: str) -> str:
-    return f"{'✅' if ok else '❌'} {label}"
+    return f"{'good' if ok else 'issue'} {label}"
 
 
 # --------------------------------------------------------------------------- #
 # Header
 # --------------------------------------------------------------------------- #
-st.title("🔐 CENGShare")
+st.title(" CENGShare")
 st.caption(
     "Secure document sharing · Confidentiality · Integrity · Authentication · "
     "Detection · Accountability — by Team CENG"
 )
 
 tab_send, tab_receive, tab_ids, tab_audit = st.tabs(
-    ["📤 Send Secure File", "📥 Receive & Verify", "🛡️ IDS Monitoring", "📜 Forensic Audit Log"]
+    [" Send Secure File", "Receive & Verify", " IDS Monitoring", " Forensic Audit Log"]
 )
 
 # --------------------------------------------------------------------------- #
@@ -65,7 +65,7 @@ with tab_send:
         plaintext = upload.read()
         st.info(f"Loaded **{upload.name}** ({len(plaintext):,} bytes).")
 
-        if st.button("🔒 Encrypt, Hash & Sign", type="primary"):
+        if st.button(" Encrypt, Hash & Sign", type="primary"):
             sender_private = load_private_key(KEYS["sender_private"])
             receiver_public = load_public_key(KEYS["receiver_public"])
             package = create_secure_package(
@@ -91,7 +91,7 @@ with tab_send:
             package_bytes = package_to_bytes(package)
             out_name = f"{upload.name}.cengshare.json"
             st.download_button(
-                "⬇️ Download Secure Package",
+                "Download Secure Package",
                 data=package_bytes,
                 file_name=out_name,
                 mime="application/json",
@@ -155,22 +155,22 @@ with tab_receive:
                 st.success("All checks passed — file authentic and intact.")
                 audit_log.log_event("DECRYPT", {"filename": result.filename})
                 st.download_button(
-                    "⬇️ Download Decrypted File",
+                    " Download Decrypted File",
                     data=result.plaintext,
                     file_name=result.filename or "recovered.bin",
                 )
             else:
                 st.error("Verification failed — decryption refused.")
                 for err in result.errors:
-                    st.write(f"- ⚠️ {err}")
+                    st.write(f"- {err}")
                 if alerts:
-                    st.warning(f"🛡️ {len(alerts)} IDS alert(s) raised. See the IDS Monitoring tab.")
+                    st.warning(f"{len(alerts)} IDS alert(s) raised. See the IDS Monitoring tab.")
 
 # --------------------------------------------------------------------------- #
 # Tab 3 — IDS Monitoring
 # --------------------------------------------------------------------------- #
 with tab_ids:
-    st.subheader("🛡️ Intrusion Detection")
+    st.subheader("Intrusion Detection")
     summary = ids.alert_summary()
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total alerts", summary["total"])
@@ -202,7 +202,7 @@ with tab_ids:
 # Tab 4 — Forensic Audit Log
 # --------------------------------------------------------------------------- #
 with tab_audit:
-    st.subheader("📜 Forensic Audit Log (hash-chained)")
+    st.subheader(" Forensic Audit Log (hash-chained)")
     st.write(
         "Every event is chained to the previous one with SHA-256. Altering any "
         "past record breaks the chain — proving tamper-evidence."
@@ -210,10 +210,10 @@ with tab_audit:
 
     chain = audit_log.verify_chain()
     if chain["intact"]:
-        st.success(f"✅ Chain intact — {chain['count']} record(s) verified.")
+        st.success(f" Chain intact — {chain['count']} record(s) verified.")
     else:
         st.error(
-            f"❌ Chain BROKEN at record #{chain['broken_index']}: {chain['reason']}"
+            f" Chain BROKEN at record #{chain['broken_index']}: {chain['reason']}"
         )
 
     records = list(reversed(audit_log.read_log()))
@@ -232,7 +232,7 @@ with tab_audit:
         ]
         st.dataframe(rows, use_container_width=True, hide_index=True)
 
-    with st.expander("🔬 Tamper test (for the demo)"):
+    with st.expander(" Tamper test (for the demo)"):
         st.write(
             "Edit `logs/audit_log.jsonl` by hand (change any past record), then "
             "reopen this tab — the chain check above will report the broken index."

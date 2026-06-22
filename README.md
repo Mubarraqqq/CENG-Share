@@ -1,9 +1,9 @@
-# 🔐 CENGShare — Secure Document Sharing
+#  CENGShare — Secure Document Sharing
 
 A defensive-cybersecurity web app by **Team CENG**. One file transfer, five
 security pillars — each backed by a real cryptographic mechanism, not a mockup.
 
-> **Status:** ✅ Self-test **11/11 pass** · ✅ App boots clean (Streamlit HTTP 200,
+> **Status:**  Self-test **11/11 pass** ·  App boots clean (Streamlit HTTP 200,
 > headless, zero errors in the boot log).
 
 | Pillar | Mechanism |
@@ -70,12 +70,12 @@ failed, not merely *that* it failed.
 
 ## The four tabs
 
-1. **📤 Send Secure File** — upload a document → encrypted, hashed and signed →
+1. ** Send Secure File** — upload a document → encrypted, hashed and signed →
    download the `.cengshare.json` secure package.
-2. **📥 Receive & Verify** — upload a package → signature + integrity checked
+2. ** Receive & Verify** — upload a package → signature + integrity checked
    *before* decryption → download the recovered file only if every check passes.
-3. **🛡️ IDS Monitoring** — live table of security alerts with severities.
-4. **📜 Forensic Audit Log** — every event chained with SHA-256; the verifier
+3. ** IDS Monitoring** — live table of security alerts with severities.
+4. ** Forensic Audit Log** — every event chained with SHA-256; the verifier
    reports the exact record index where tampering occurred.
 
 ## Demo script (the four scenarios)
