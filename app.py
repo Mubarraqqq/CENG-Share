@@ -37,6 +37,74 @@ def _badge(ok: bool, label: str) -> str:
     return f"{'good' if ok else 'issue'} {label}"
 
 
+def verify_and_report(package: dict, source: str, *, dl_key: str):
+    """Verify a parsed package, log it, raise IDS alerts and render the report.
+
+    Shared by the inbox flow and the manual upload flow so a tampered package
+    is judged by exactly the same checks regardless of how it arrived.
+    Returns the VerificationResult.
+    """
+    claimed_sender = package.get("metadata", {}).get("sender", "?")
+    trusted_pub = identity.get_public_key(claimed_sender)
+    sender_known = trusted_pub is not None
+
+    # Impersonation check: the embedded key must match the trusted one.
+    embedded = (package.get("sender_public_key") or "").strip()
+    trusted_pem = (identity.public_pem(claimed_sender) or "").strip()
+    key_mismatch = sender_known and embedded != trusted_pem
+
+    receiver_private = identity.get_private_key(me)
+    result = open_secure_package(
+        package, receiver_private, expected_sender_public_key=trusted_pub
+    )
+    audit_log.log_event(
+        "VERIFY",
+        {"source": source, "claimed_sender": claimed_sender,
+         "sender_known": sender_known, **result.as_dict()},
+    )
+    alerts = ids.analyze_verification(result, source=source)
+
+    if not sender_known:
+        alerts.append(ids.raise_alert(
+            "WARNING", "UNKNOWN_SENDER",
+            f"Sender '{claimed_sender}' is not in your keyring — identity unverified.",
+            {"source": source}))
+    if key_mismatch:
+        alerts.append(ids.raise_alert(
+            "CRITICAL", "SENDER_KEY_MISMATCH",
+            f"Embedded key does not match the trusted key for '{claimed_sender}' — possible impersonation.",
+            {"source": source}))
+
+    st.markdown("#### Verification report")
+    if sender_known and result.signature_valid:
+        st.success(f"Verified sender: **{claimed_sender}** · `{identity.fingerprint(claimed_sender)}`")
+    elif not sender_known:
+        st.warning(f"Sender '{claimed_sender}' is not in your keyring — identity could not be verified.")
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.write(_badge(result.package_valid, "Package valid"))
+    c2.write(_badge(result.signature_valid, "Signature"))
+    c3.write(_badge(result.integrity_valid, "Integrity"))
+    c4.write(_badge(result.decrypted, "Decrypted"))
+
+    if result.ok:
+        st.success("All checks passed — file authentic and intact.")
+        audit_log.log_event("DECRYPT", {"source": source, "filename": result.filename})
+        st.download_button(
+            "⬇️ Download Decrypted File",
+            data=result.plaintext,
+            file_name=result.filename or "recovered.bin",
+            key=dl_key,
+        )
+    else:
+        st.error("Verification failed — decryption refused.")
+        for err in result.errors:
+            st.write(f"- {err}")
+        if alerts:
+            st.warning(f"{len(alerts)} IDS alert(s) raised. See the IDS Monitoring tab.")
+    return result
+
+
 # --------------------------------------------------------------------------- #
 # Sidebar — who am I?
 # --------------------------------------------------------------------------- #
@@ -201,67 +269,41 @@ with tab_receive:
                                 "Package on the channel is not valid JSON.", {"msg_id": msg_id})
                 audit_log.log_event("VERIFY_FAIL", {"reason": "unparseable package"})
             else:
-                claimed_sender = package.get("metadata", {}).get("sender", "?")
-                trusted_pub = identity.get_public_key(claimed_sender)
-                sender_known = trusted_pub is not None
+                result = verify_and_report(package, msg_id, dl_key=f"dl_inbox_{msg_id}")
+                if result.ok and st.button("🗑️ Remove from channel"):
+                    channel.delete(msg_id)
+                    audit_log.log_event("CHANNEL_DELETE", {"msg_id": msg_id})
+                    st.rerun()
 
-                # Impersonation check: the embedded key must match the trusted one.
-                embedded = (package.get("sender_public_key") or "").strip()
-                trusted_pem = (identity.public_pem(claimed_sender) or "").strip()
-                key_mismatch = sender_known and embedded != trusted_pem
+    # ----------------------------------------------------------------------- #
+    # Manual upload — drop in a (possibly tampered) package to exercise the IDS
+    # ----------------------------------------------------------------------- #
+    st.divider()
+    st.markdown("#### 🧪 Manually upload a package (IDS demo)")
+    st.caption(
+        "Upload a `.cengshare.json` package directly — including a **tampered** one "
+        "(edit the ciphertext, hash, signature or sender key by hand first). The "
+        "same verification runs, so you can watch the IDS flag the forgery."
+    )
+    pkg_file = st.file_uploader(
+        "Upload package to verify", type=["json"], key="manual_pkg_upload"
+    )
+    if pkg_file is not None and st.button("🔎 Verify uploaded package", key="verify_upload"):
+        raw = pkg_file.read()
+        try:
+            package = package_from_bytes(raw)
+            parse_error = None
+        except Exception as exc:  # noqa: BLE001
+            package, parse_error = None, str(exc)
 
-                receiver_private = identity.get_private_key(me)
-                result = open_secure_package(
-                    package, receiver_private, expected_sender_public_key=trusted_pub
-                )
-                audit_log.log_event(
-                    "VERIFY",
-                    {"msg_id": msg_id, "claimed_sender": claimed_sender,
-                     "sender_known": sender_known, **result.as_dict()},
-                )
-                alerts = ids.analyze_verification(result, source=msg_id)
-
-                if not sender_known:
-                    alerts.append(ids.raise_alert(
-                        "WARNING", "UNKNOWN_SENDER",
-                        f"Sender '{claimed_sender}' is not in your keyring — identity unverified.",
-                        {"msg_id": msg_id}))
-                if key_mismatch:
-                    alerts.append(ids.raise_alert(
-                        "CRITICAL", "SENDER_KEY_MISMATCH",
-                        f"Embedded key does not match the trusted key for '{claimed_sender}' — possible impersonation.",
-                        {"msg_id": msg_id}))
-
-                st.markdown("#### Verification report")
-                if sender_known and result.signature_valid:
-                    st.success(f"Verified sender: **{claimed_sender}** · `{identity.fingerprint(claimed_sender)}`")
-                elif not sender_known:
-                    st.warning(f"Sender '{claimed_sender}' is not in your keyring — identity could not be verified.")
-
-                c1, c2, c3, c4 = st.columns(4)
-                c1.write(_badge(result.package_valid, "Package valid"))
-                c2.write(_badge(result.signature_valid, "Signature"))
-                c3.write(_badge(result.integrity_valid, "Integrity"))
-                c4.write(_badge(result.decrypted, "Decrypted"))
-
-                if result.ok:
-                    st.success("All checks passed — file authentic and intact.")
-                    audit_log.log_event("DECRYPT", {"msg_id": msg_id, "filename": result.filename})
-                    st.download_button(
-                        "⬇️ Download Decrypted File",
-                        data=result.plaintext,
-                        file_name=result.filename or "recovered.bin",
-                    )
-                    if st.button("🗑️ Remove from channel"):
-                        channel.delete(msg_id)
-                        audit_log.log_event("CHANNEL_DELETE", {"msg_id": msg_id})
-                        st.rerun()
-                else:
-                    st.error("Verification failed — decryption refused.")
-                    for err in result.errors:
-                        st.write(f"- {err}")
-                    if alerts:
-                        st.warning(f"{len(alerts)} IDS alert(s) raised. See the IDS Monitoring tab.")
+        if parse_error:
+            st.error(f"Could not parse package: {parse_error}")
+            ids.raise_alert("CRITICAL", "INVALID_PACKAGE",
+                            "Uploaded package is not valid JSON.", {"source": pkg_file.name})
+            audit_log.log_event("VERIFY_FAIL",
+                                {"source": pkg_file.name, "reason": "unparseable package"})
+        else:
+            verify_and_report(package, pkg_file.name, dl_key=f"dl_upload_{pkg_file.name}")
 
 # --------------------------------------------------------------------------- #
 # Tab 3 — IDS Monitoring
