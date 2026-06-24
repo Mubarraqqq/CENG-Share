@@ -1,6 +1,6 @@
 #  CENGShare — Secure Document Sharing
 
-A defensive-cybersecurity web app by **Team CENG**. One file transfer, five
+A defensive-cybersecurity web app by **Team CENG**. One file transfer, six
 security pillars — each backed by a real cryptographic mechanism, not a mockup.
 
 > **Status:**  Self-test **11/11 pass** ·  App boots clean (Streamlit HTTP 200,

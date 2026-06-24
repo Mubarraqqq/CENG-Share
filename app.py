@@ -1,17 +1,3 @@
-"""
-CENGShare — Secure Document Sharing (Team CENG)
-
-Two-party model: each browser session acts as one identity (e.g. Alice or Bob).
-Identities never share private keys; they exchange public keys through a shared
-keyring and move secure packages through a shared `channel/` folder — the
-"network". A sender publishes; a receiver polls, verifies and decrypts.
-
-Five pillars: Confidentiality (AES-256-GCM), Integrity (SHA-256), Authentication
-(RSA-PSS, verified against the trusted keyring), Detection (IDS), Accountability
-(hash-chained audit log).
-
-Run:  streamlit run app.py    (open a second browser tab for the other user)
-"""
 
 from __future__ import annotations
 
@@ -48,6 +34,30 @@ def verify_and_report(package: dict, source: str, *, dl_key: str):
     trusted_pub = identity.get_public_key(claimed_sender)
     sender_known = trusted_pub is not None
 
+    if not sender_known:
+        ids.raise_alert(
+            "WARNING",
+            "UNKNOWN_SENDER",
+            f"Sender '{claimed_sender}' is not in the trusted keyring.",
+            {"source": source},
+        )
+
+        audit_log.log_event(
+            "VERIFY_FAIL",
+            {
+                "source": source,
+                "claimed_sender": claimed_sender,
+                "reason": "unknown sender",
+            },
+        )
+
+        st.error(
+            f"Sender '{claimed_sender}' is not trusted. "
+            "Signature verification and decryption were blocked."
+        )
+
+        return None
+
     # Impersonation check: the embedded key must match the trusted one.
     embedded = (package.get("sender_public_key") or "").strip()
     trusted_pem = (identity.public_pem(claimed_sender) or "").strip()
@@ -64,11 +74,7 @@ def verify_and_report(package: dict, source: str, *, dl_key: str):
     )
     alerts = ids.analyze_verification(result, source=source)
 
-    if not sender_known:
-        alerts.append(ids.raise_alert(
-            "WARNING", "UNKNOWN_SENDER",
-            f"Sender '{claimed_sender}' is not in your keyring — identity unverified.",
-            {"source": source}))
+
     if key_mismatch:
         alerts.append(ids.raise_alert(
             "CRITICAL", "SENDER_KEY_MISMATCH",
@@ -270,7 +276,17 @@ with tab_receive:
                 audit_log.log_event("VERIFY_FAIL", {"reason": "unparseable package"})
             else:
                 result = verify_and_report(package, msg_id, dl_key=f"dl_inbox_{msg_id}")
-                if result.ok and st.button("🗑️ Remove from channel"):
+                if (
+                        result is not None
+                        and result.ok
+                        and st.button("🗑️ Remove from channel")
+                ):
+                    channel.delete(msg_id)
+                    audit_log.log_event(
+                        "CHANNEL_DELETE",
+                        {"msg_id": msg_id},
+                    )
+                    st.rerun()
                     channel.delete(msg_id)
                     audit_log.log_event("CHANNEL_DELETE", {"msg_id": msg_id})
                     st.rerun()

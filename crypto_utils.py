@@ -1,17 +1,3 @@
-"""
-crypto_utils.py — Cryptographic core for CENGShare.
-
-Security model (per file transfer):
-  Confidentiality : file body encrypted with AES-256-GCM (random key + nonce).
-  Key protection  : the AES key is encrypted with the receiver's RSA public key
-                    (RSA-OAEP). Only the receiver's private key can recover it.
-  Integrity       : SHA-256 hash of the plaintext is stored in the package.
-  Authentication  : the complete encrypted package is digitally signed with the
-                  sender's RSA private key (RSA-PSS). The receiver verifies it
-                  using the sender's trusted public key before decryption.
-
-Everything binary in a package is base64-encoded so the package is plain JSON.
-"""
 
 from __future__ import annotations
 
@@ -294,7 +280,7 @@ _REQUIRED_FIELDS = (
 def open_secure_package(
     package: dict,
     receiver_private_key,
-    expected_sender_public_key=None,
+    expected_sender_public_key,
 ) -> VerificationResult:
     """Verify signature + integrity, then decrypt.
 
@@ -323,9 +309,13 @@ def open_secure_package(
         return result
 
     # --- authentication: verify the complete signed package -----------------
-    sender_pub = expected_sender_public_key or load_public_key(
-        package["sender_public_key"]
-    )
+    if expected_sender_public_key is None:
+        result.errors.append(
+            "Verification blocked: a trusted sender public key is required."
+        )
+        return result
+
+    sender_pub = expected_sender_public_key
     try:
         sender_pub.verify(
             signature,

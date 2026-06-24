@@ -1,19 +1,3 @@
-"""
-test_cengshare.py — End-to-end self-test of the CENGShare security pipeline.
-
-Covers six security scenarios:
-
-1. Successful secure transfer.
-2. Tampered ciphertext rejection.
-3. Tampered metadata rejection.
-4. Forged sender / wrong signing key rejection.
-5. Malformed package rejection.
-6. Hash-chained audit-log tamper detection.
-
-Run:
-    python3 test_cengshare.py
-"""
-
 import base64
 import copy
 import json
@@ -41,10 +25,6 @@ def check(name: str, condition: bool) -> None:
     print(f"  {PASS if condition else FAIL}  {name}")
 
 
-# ---------------------------------------------------------------------------
-# Load the legitimate CENGShare identities
-# ---------------------------------------------------------------------------
-
 keys = ensure_keys()
 
 sender_private = load_private_key(keys["sender_private"])
@@ -52,11 +32,6 @@ trusted_sender_public = load_public_key(keys["sender_public"])
 
 receiver_private = load_private_key(keys["receiver_private"])
 receiver_public = load_public_key(keys["receiver_public"])
-
-
-# ---------------------------------------------------------------------------
-# Create a legitimate secure package
-# ---------------------------------------------------------------------------
 
 data = (
     b"Top secret CENG report: launch codes 0000-1111-2222.\n"
@@ -70,10 +45,6 @@ package = create_secure_package(
     receiver_public_key=receiver_public,
 )
 
-
-# ---------------------------------------------------------------------------
-# 1. Successful secure transfer
-# ---------------------------------------------------------------------------
 
 print("\n[1] Successful secure transfer")
 
@@ -90,10 +61,6 @@ check("decrypted", result.decrypted)
 check("plaintext round-trips", result.plaintext == data)
 check("overall accepted", result.ok)
 
-
-# ---------------------------------------------------------------------------
-# 2. Tampered ciphertext
-# ---------------------------------------------------------------------------
 
 print("\n[2] Tampered ciphertext is rejected")
 
@@ -138,10 +105,6 @@ check(
 )
 
 
-# ---------------------------------------------------------------------------
-# 3. Tampered metadata
-# ---------------------------------------------------------------------------
-
 print("\n[3] Tampered metadata is rejected")
 
 metadata_tampered_package = copy.deepcopy(package)
@@ -176,10 +139,6 @@ check(
     not metadata_result.ok,
 )
 
-
-# ---------------------------------------------------------------------------
-# 4. Forged sender
-# ---------------------------------------------------------------------------
 
 print("\n[4] Forged sender is rejected")
 
@@ -223,10 +182,6 @@ check(
 )
 
 
-# ---------------------------------------------------------------------------
-# 5. Malformed package
-# ---------------------------------------------------------------------------
-
 print("\n[5] Malformed package is rejected")
 
 malformed_result = open_secure_package(
@@ -253,9 +208,6 @@ check(
 )
 
 
-# ---------------------------------------------------------------------------
-# 6. Audit-log hash-chain tampering
-# ---------------------------------------------------------------------------
 
 print("\n[6] Audit-log hash chain")
 
@@ -323,10 +275,6 @@ with tempfile.TemporaryDirectory() as temporary_directory:
         # Restore the real application audit-log path.
         audit_log.AUDIT_PATH = original_audit_path
 
-
-# ---------------------------------------------------------------------------
-# Final result
-# ---------------------------------------------------------------------------
 
 print("\n" + "=" * 58)
 

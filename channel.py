@@ -1,18 +1,3 @@
-"""
-channel.py — The shared-folder transport between sender and receiver.
-
-The `channel/` directory IS the untrusted network. Two browser sessions of the
-app (Alice in one, Bob in another) never call each other directly — the sender
-*publishes* a secure package into `channel/outbox/` and the receiver *polls* it.
-
-    channel/
-      keyring/   <- published public keys (see identity.py)
-      outbox/    <- secure packages in transit (the "wire")
-
-Because only encrypted, signed packages cross the channel, tampering with a file
-in `outbox/` is exactly the attack the Receive & Verify + IDS pipeline detects.
-Put `channel/` on a synced/USB drive and the same code spans two machines.
-"""
 
 from __future__ import annotations
 
