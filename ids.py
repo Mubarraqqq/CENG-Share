@@ -1,20 +1,3 @@
-"""
-ids.py — Lightweight Intrusion Detection System for CENGShare.
-
-The IDS does not do crypto itself. It observes the outcomes reported by the
-verification pipeline and raises alerts for:
-
-  * tampered files          -> integrity (hash) check failed
-  * invalid packages        -> malformed / undecodable package
-  * failed decryption       -> AES-GCM tag mismatch or key recovery failure
-  * bad signatures          -> authentication failed
-  * repeated suspicious access
-                            -> N failed events within a short rolling window
-                               (brute-force / probing behaviour)
-
-Alerts are persisted to logs/alerts.jsonl AND mirrored into the hash-chained
-audit log so detection events are themselves tamper-evident.
-"""
 
 from __future__ import annotations
 

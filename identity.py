@@ -1,25 +1,4 @@
-"""
-identity.py — User identities and the public-key keyring for CENGShare.
 
-Two-party model
----------------
-Each *user* (e.g. Alice, Bob) owns one RSA-2048 keypair:
-
-    identities/<name>/private.pem   ← secret, never leaves the user's system
-    identities/<name>/public.pem    ← shared
-
-When an identity is created, its PUBLIC key is auto-published to the shared
-keyring inside the channel:
-
-    channel/keyring/<name>.pem
-
-The keyring is the *trusted* source of public keys. A receiver verifies a
-sender's signature against the keyring copy — NOT the copy embedded in the
-package — so a forged package carrying an attacker's key is rejected.
-
-Note: one keypair per identity is used for both signing (PSS) and key-wrapping
-(OAEP) to keep the demo simple. Production systems separate those two keys.
-"""
 
 from __future__ import annotations
 

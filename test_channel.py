@@ -1,17 +1,3 @@
-"""
-test_channel.py — Two-party (identity + channel) self-test for CENGShare.
-
-Simulates Alice sending to Bob through the shared channel, then exercises the
-trust checks that make this genuinely two-party:
-  1. Bob receives and decrypts a package addressed to him.
-  2. A tampered package on the channel is rejected.
-  3. An impersonator (Mallory signing but claiming to be Alice) is rejected
-     because Bob verifies against Alice's TRUSTED keyring key, not the
-     embedded one.
-
-Run:  python test_channel.py
-"""
-
 import base64
 import copy
 import json

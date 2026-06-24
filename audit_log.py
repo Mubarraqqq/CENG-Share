@@ -1,15 +1,3 @@
-"""
-audit_log.py — Forensic, tamper-evident audit log for CENGShare.
-
-Every security-relevant event (encryption, decryption, verification, alert) is
-appended as one JSON line. Each record stores the hash of the previous record,
-forming a hash chain (a tiny blockchain). Editing or deleting any past record
-breaks every hash after it, so tampering is detectable by re-walking the chain.
-
-    entry_hash = SHA256( index | timestamp | event | details | prev_hash )
-
-Stored as JSON Lines at logs/audit_log.jsonl.
-"""
 
 from __future__ import annotations
 

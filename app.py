@@ -1,17 +1,3 @@
-"""
-CENGShare — Secure Document Sharing (Team CENG)
-
-Two-party model: each browser session acts as one identity (e.g. Alice or Bob).
-Identities never share private keys; they exchange public keys through a shared
-keyring and move secure packages through a shared `channel/` folder — the
-"network". A sender publishes; a receiver polls, verifies and decrypts.
-
-Five pillars: Confidentiality (AES-256-GCM), Integrity (SHA-256), Authentication
-(RSA-PSS, verified against the trusted keyring), Detection (IDS), Accountability
-(hash-chained audit log).
-
-Run:  streamlit run app.py    (open a second browser tab for the other user)
-"""
 
 from __future__ import annotations
 

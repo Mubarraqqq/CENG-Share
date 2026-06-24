@@ -1,17 +1,3 @@
-"""
-crypto_utils.py — Cryptographic core for CENGShare.
-
-Security model (per file transfer):
-  Confidentiality : file body encrypted with AES-256-GCM (random key + nonce).
-  Key protection  : the AES key is encrypted with the receiver's RSA public key
-                    (RSA-OAEP). Only the receiver's private key can recover it.
-  Integrity       : SHA-256 hash of the plaintext is stored in the package.
-  Authentication  : the complete encrypted package is digitally signed with the
-                  sender's RSA private key (RSA-PSS). The receiver verifies it
-                  using the sender's trusted public key before decryption.
-
-Everything binary in a package is base64-encoded so the package is plain JSON.
-"""
 
 from __future__ import annotations
 
